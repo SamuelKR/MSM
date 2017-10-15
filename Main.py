@@ -9,10 +9,18 @@ class MyWindow(QtWidgets.QMainWindow):
         self.ui = Ui_mainWindow()
         self.ui.setupUi(self)
         create_db()
-        self.ui.create_new.clicked.connect(lambda: self.ui.mps_sub_page.setCurrentIndex(int(0)))
+        self.ui.mps_display_support.itemSelectionChanged.connect(lambda: enable_button(self))
+        self.ui.create_new.clicked.connect(lambda: self.ui.mps_sub_page.setCurrentIndex(int(1)))
+        self.ui.modify_existing.clicked.connect(lambda: modify_support(self))
+        self.ui.mps_save_button.clicked.connect(lambda: modify_save_support(self))
+        self.ui.change_status.clicked.connect (lambda: update_status(self))
+        # self.ui.change_status.clicked.connect(lambda: self.ui.mps_sub_page.setCurrentIndex(int(3)))
+        # self.ui.mps_upstatus_button.clicked.connect (lambda: update_status(self))
         self.ui.mps_openfile_button.clicked.connect(lambda: insert_image(self))
         self.ui.mps_create_button.clicked.connect(lambda: input_validator(self))
         self.ui.mps_cancel_button.clicked.connect(lambda: cancel_menu(self))
+        self.ui.mps_cancel_mod_button.clicked.connect(lambda: cancel_menu(self))
+        self.ui.mps_upstatus_cancel_button.clicked.connect(lambda: cancel_menu(self))
         self.ui.mps_btn_refresh.clicked.connect(lambda: load_data(self))
         self.ui.actionMPS_Misc_Pipe_Supports.triggered.connect(lambda: self.ui.stackedWidget.setCurrentIndex(int(1)))
         self.ui.actionMES_Misc_Electrical_Supports.triggered.connect(
@@ -22,9 +30,13 @@ class MyWindow(QtWidgets.QMainWindow):
         self.ui.mes_display_support.horizontalHeader().setVisible(True)
         self.ui.mps_display_support.horizontalHeader().setVisible(True)
         self.ui.mps_display_support.setSelectionBehavior(self.ui.mps_display_support.SelectRows)
+        self.ui.mps_display_support.selectionMode()
         self.ui.mps_display_support.setEditTriggers(self.ui.mps_display_support.NoEditTriggers)
         load_data(self)
 
+
+class globvars:
+    row_no = 0
 
 def create_db():
     conn = sqlite3.connect('msm.db')
@@ -129,10 +141,19 @@ def cancel_menu(self):
     self.ui.mps_area_line_edit.clear()
     self.ui.mps_cwp_line_edit.clear()
     self.ui.mps_desc_line_edit.clear()
+    self.ui.mps_unit_mod_line_edit.clear()
+    self.ui.mps_area_mod_line_edit.clear()
+    self.ui.mps_cwp_mod_line_edit.clear()
+    self.ui.mps_desc_mod_line_edit.clear()
+    self.ui.mps_display_support.clearSelection()
+    self.ui.modify_existing.setEnabled(False)
+    self.ui.change_status.setEnabled(False)
+    self.ui.mps_sub_page.setCurrentIndex(int(0))
+
     file_name = open("filename", 'w')
     file_name.write(" ")
     file_name.close()
-    self.ui.mps_cancel_button.clicked.connect(lambda: self.ui.mps_sub_page.setCurrentIndex(int(1)))
+
 
 
 def time_stamp():
@@ -186,6 +207,63 @@ def create_supp(self):
     QtWidgets.QMessageBox.question(w, "Message", "Do you want to send notification?")
     load_data(self)
     cancel_menu(self)
+
+
+def enable_button(self):
+    self.ui.modify_existing.setEnabled(True)
+    self.ui.change_status.setEnabled(True)
+
+
+def modify_support(self):
+    globvars.row_no = self.ui.mps_display_support.currentRow()+1
+    self.ui.mps_sub_page.setCurrentIndex(int(2))
+    conn = sqlite3.connect('msm.db')
+    c = conn.cursor()
+    c.execute("SELECT Unit, Area, CWP, Description FROM MPS WHERE ROWID=?",(globvars.row_no,))
+    result = c.fetchone()
+    self.ui.mps_unit_mod_line_edit.setText(result[0])
+    self.ui.mps_area_mod_line_edit.setText(result[1])
+    self.ui.mps_cwp_mod_line_edit.setText(result[2])
+    self.ui.mps_desc_mod_line_edit.setText(result[3])
+    c.close()
+    conn.close()
+
+
+def modify_save_support(self):
+    conn = sqlite3.connect('msm.db')
+    c = conn.cursor()
+    _unit = self.ui.mps_unit_mod_line_edit.text()
+    _area = self.ui.mps_area_mod_line_edit.text()
+    _cwp = self.ui.mps_cwp_mod_line_edit.text()
+    _desc = self.ui.mps_desc_mod_line_edit.text()
+    c.execute("""UPDATE MPS SET Unit=?, Area=? , CWP=?, Description=?, SuppStatus="Modified", ModifiedBy=?, ModifiedDate=?
+               WHERE ROWID=?""", [_unit, _area, _cwp, _desc, os.getlogin(), time_stamp(), globvars.row_no])
+    conn.commit()
+    c.close()
+    conn.close()
+    load_data(self)
+    cancel_menu(self)
+
+
+def update_status(self):
+    globvars.row_no = self.ui.mps_display_support.currentRow()+1
+    self.ui.mps_sub_page.setCurrentIndex(int(3))
+    combo_value = self.ui.mps_upstatus_combo.currentText()
+    print(combo_value)
+    conn = sqlite3.connect('msm.db')
+    c = conn.cursor()
+    c.execute("""UPDATE MPS SET SuppStatus=?, {}By=?, {}Date=?
+                     WHERE ROWID=?""".format(combo_value, combo_value), [combo_value, os.getlogin(), time_stamp(), globvars.row_no])
+
+    # c.execute("""UPDATE MPS SET SuppStatus=?, "+combo_value+"By=?, "+combo_value+"Date=?
+    #                WHERE ROWID=?""", [combo_value, os.getlogin(), time_stamp(), globvars.row_no])
+    conn.commit()
+    c.close()
+    conn.close()
+    # load_data(self)
+    # cancel_menu(self)
+
+
 
 
 if __name__ == '__main__':
