@@ -11,9 +11,11 @@ class MyWindow(QtWidgets.QMainWindow):
         create_db()
         self.ui.mps_display_support.itemSelectionChanged.connect(lambda: enable_button(self))
         self.ui.create_new.clicked.connect(lambda: self.ui.mps_sub_page.setCurrentIndex(int(1)))
+
         self.ui.modify_existing.clicked.connect(lambda: modify_support(self))
         self.ui.mps_save_button.clicked.connect(lambda: modify_save_support(self))
         self.ui.change_status.clicked.connect (lambda: update_status(self))
+        self.ui.mps_upstatus_button.clicked.connect (lambda: update_save_status(self))
         # self.ui.change_status.clicked.connect(lambda: self.ui.mps_sub_page.setCurrentIndex(int(3)))
         # self.ui.mps_upstatus_button.clicked.connect (lambda: update_status(self))
         self.ui.mps_openfile_button.clicked.connect(lambda: insert_image(self))
@@ -155,7 +157,6 @@ def cancel_menu(self):
     file_name.close()
 
 
-
 def time_stamp():
     _timestamp = ('{:%d-%b-%Y %H:%M:%S}'.format(datetime.datetime.now()))
     return _timestamp
@@ -246,24 +247,35 @@ def modify_save_support(self):
 
 
 def update_status(self):
-    globvars.row_no = self.ui.mps_display_support.currentRow()+1
+    globvars.row_no = self.ui.mps_display_support.currentRow() + 1
+    # cb_letter.model().item(2).setEnabled(False)
+    # self.ui.mps_upstatus_combo.
+    # self.ui.mps_upstatus_combo.se
+    conn = sqlite3.connect('msm.db')
+    c = conn.cursor()
+    c.execute("SELECT SuppStatus FROM MPS WHERE ROWID=?", (globvars.row_no,))
+    result = c.fetchone()
+    if not result[0] in ("Implemented", "Approved", "Rejected"):
+        self.ui.mps_upstatus_combo.setCurrentIndex(int(0))
+    else:
+        self.ui.mps_upstatus_combo.setCurrentText(result[0])
+    c.close()
+    conn.close()
     self.ui.mps_sub_page.setCurrentIndex(int(3))
+    self.ui.mps_upstatus_combo.insertSeparator(int(1))
+
+
+def update_save_status(self):
     combo_value = self.ui.mps_upstatus_combo.currentText()
-    print(combo_value)
     conn = sqlite3.connect('msm.db')
     c = conn.cursor()
     c.execute("""UPDATE MPS SET SuppStatus=?, {}By=?, {}Date=?
                      WHERE ROWID=?""".format(combo_value, combo_value), [combo_value, os.getlogin(), time_stamp(), globvars.row_no])
-
-    # c.execute("""UPDATE MPS SET SuppStatus=?, "+combo_value+"By=?, "+combo_value+"Date=?
-    #                WHERE ROWID=?""", [combo_value, os.getlogin(), time_stamp(), globvars.row_no])
     conn.commit()
     c.close()
     conn.close()
-    # load_data(self)
-    # cancel_menu(self)
-
-
+    load_data(self)
+    cancel_menu(self)
 
 
 if __name__ == '__main__':
